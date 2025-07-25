@@ -55,14 +55,16 @@ export function AuthButton() {
     return <div className="text-sm">Loading user...</div>;
   }
 
+  const isAdmin = user && user.id === process.env.ADMIN_USER_ID;
+
   return user ? (
     <div className="flex items-center gap-4">
       <span className="text-sm hidden sm:block">Hey, {user.email}!</span>
-      <Button asChild size="sm" variant={"outline"}>
-        <Link href="/admin">
-          <span>Admin Dashboard</span>
-        </Link>
-      </Button>
+      {isAdmin && (
+        <Button asChild variant="outline" size="sm">
+          <Link href="/admin">Admin Dashboard</Link>
+        </Button>
+      )}
       <Button
         onClick={handleSignOut}
         size="sm"

@@ -1,46 +1,50 @@
 // src/app/layout.tsx
-import { GeistSans } from "geist/font/sans";
-import "./globals.css"; // Your global styles
-import { createClient } from "@/src/lib/supabase/server";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
 import { AuthButton } from "@/src/components/auth-button";
-import AuthGuard from "@/src/components/auth-guard";
+import { ThemeProvider } from "@/src/components/theme-provider";
+import { Toaster } from "react-hot-toast";
 import Link from "next/link";
 
-const defaultUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : "http://localhost:3000";
+const inter = Inter({ subsets: ["latin"] });
 
-export const metadata = {
-  metadataBase: new URL(defaultUrl),
-  title: "Obiajulu Chisom Chikamso - Full-Stack Portfolio",
-  description: "A dynamic portfolio showcasing my projects and skills.",
+export const metadata: Metadata = {
+  title: "My Awesome Portfolio",
+  description: "A portfolio built with Next.js and Supabase.",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
-  // Fetch user on the server to pass to AuthGuard if needed
-  // (This fetch is primarily for the AuthButton and initial server render)
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+}>) {
   return (
-    <html lang="en" className={GeistSans.className}>
-      <body className="bg-background text-foreground min-h-screen flex flex-col">
-        <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
-          <div className="w-full max-w-4xl flex justify-between items-center p-3 text-sm">
-            <Link href="/" className="font-bold text-lg">
-              Obiajulu Chisom Chikamso
-            </Link>
-            <AuthButton />
-          </div>
-        </nav>
-        <main className="flex-1 flex flex-col items-center">{children}</main>
-        <AuthGuard serverUser={user} />
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="container flex h-14 items-center px-4">
+              <nav className="flex items-center space-x-4 lg:space-x-6 mx-6">
+                <Link href="/" className="text-lg font-bold">
+                  My Portfolio
+                </Link>
+                {/* Add other global nav links here if any */}
+              </nav>
+              <div className="flex flex-1 items-center justify-end space-x-2">
+                <AuthButton />
+              </div>
+            </div>
+          </header>
+          <main className="flex-1 container mx-auto px-4 py-8">{children}</main>
+          <Toaster position="top-center" reverseOrder={false} />{" "}
+          {/* <-- Add Toaster here */}
+        </ThemeProvider>
       </body>
     </html>
   );
