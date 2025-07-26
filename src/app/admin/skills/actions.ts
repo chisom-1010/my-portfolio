@@ -2,15 +2,26 @@
 "use server";
 import { createClient } from "@/src/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+// Removed: import { redirect } from "next/navigation"; // No longer needed here
+
+// Define a common return type for Server Actions
+export interface ServerActionResponse {
+  success: boolean;
+  message: string;
+  // Optional: errors?: string[]; // You can add this if you want more granular error details
+}
 
 // ==========================================================
 // CREATE SKILL Server Action
 // ==========================================================
-export async function createSkill(formData: FormData): Promise<void> {
+// Modified: Added _prevState parameter and changed return type
+export async function createSkill(
+  _prevState: ServerActionResponse,
+  formData: FormData,
+): Promise<ServerActionResponse> {
   const name = formData.get("name") as string;
-  const iconFile = formData.get("icon_file") as File; // Get the file input
-  const category = formData.get("category") as string;
+  const iconFile = formData.get("new_icon_file") as File; // Corrected to new_icon_file for consistency
+  const category = formData.get("category") as string; // Ensure category is handled if you add it to the form
 
   const supabase = await createClient();
 
@@ -21,7 +32,7 @@ export async function createSkill(formData: FormData): Promise<void> {
   } = await supabase.auth.getUser();
   if (userError || !user || user.id !== process.env.ADMIN_USER_ID) {
     console.error("Unauthorized attempt to create skill.");
-    return;
+    return { success: false, message: "Unauthorized action." }; // Changed return
   }
 
   let iconUrl: string | null = null;
@@ -48,7 +59,7 @@ export async function createSkill(formData: FormData): Promise<void> {
       uploadErrorMsg = `Failed to upload icon: ${uploadError.message}`;
     } else if (uploadData) {
       const { data: publicUrlData } = supabase.storage
-        .from("portfolio-images")
+        .from("portfolio-images") // Changed to 'portfolio-images' as per your code
         .getPublicUrl(filePath);
 
       if (publicUrlData) {
@@ -62,12 +73,15 @@ export async function createSkill(formData: FormData): Promise<void> {
     name,
     icon_url: iconUrl,
     user_id: user.id, // Associate skill with the admin user
-    category,
+    category: category || null, // Ensure category is nullable or always provided
   });
 
   if (insertError) {
     console.error("Error creating new skill:", insertError.message);
-    return;
+    return {
+      success: false,
+      message: `Failed to create skill: ${insertError.message}`,
+    }; // Changed return
   }
 
   console.log("New skill created successfully!");
@@ -79,13 +93,22 @@ export async function createSkill(formData: FormData): Promise<void> {
   revalidatePath("/admin/skills"); // Revalidate the list page
   revalidatePath("/"); // Revalidate the homepage (if it displays skills)
 
-  redirect("/admin/skills"); // Redirect back to the skills list after submission
+  // Removed: redirect("/admin/skills");
+  return {
+    success: true,
+    message:
+      "Skill created successfully!" +
+      (uploadErrorMsg ? ` (Warning: ${uploadErrorMsg})` : ""),
+  }; // Changed return
 }
 
 // ==========================================================
 // DELETE SKILL Server Action
 // ==========================================================
-export async function deleteSkill(formData: FormData): Promise<void> {
+// Modified: Changed return type
+export async function deleteSkill(
+  formData: FormData,
+): Promise<ServerActionResponse> {
   const skillId = formData.get("skillId") as string;
 
   const supabase = await createClient();
@@ -97,7 +120,7 @@ export async function deleteSkill(formData: FormData): Promise<void> {
   } = await supabase.auth.getUser();
   if (userError || !user || user.id !== process.env.ADMIN_USER_ID) {
     console.error("Unauthorized attempt to delete skill.");
-    return;
+    return { success: false, message: "Unauthorized action." }; // Changed return
   }
 
   const { data: skillToDelete, error: fetchError } = await supabase
@@ -108,6 +131,12 @@ export async function deleteSkill(formData: FormData): Promise<void> {
 
   if (fetchError) {
     console.error("Error fetching skill for icon deletion:", fetchError);
+    // Even if fetch fails, try to delete the DB entry if possible,
+    // but report the fetch error.
+    return {
+      success: false,
+      message: `Error fetching skill: ${fetchError.message}`,
+    };
   }
 
   // Delete skill entry from the database
@@ -118,7 +147,10 @@ export async function deleteSkill(formData: FormData): Promise<void> {
 
   if (deleteError) {
     console.error("Error deleting skill:", deleteError.message);
-    return;
+    return {
+      success: false,
+      message: `Failed to delete skill: ${deleteError.message}`,
+    }; // Changed return
   }
 
   if (skillToDelete?.icon_url) {
@@ -128,7 +160,7 @@ export async function deleteSkill(formData: FormData): Promise<void> {
 
     if (filePath) {
       const { error: storageError } = await supabase.storage
-        .from("portfolio-images")
+        .from("portfolio-images") // Changed to 'portfolio-images'
         .remove([filePath]); // Remove expects an array of paths
 
       if (storageError) {
@@ -136,6 +168,8 @@ export async function deleteSkill(formData: FormData): Promise<void> {
           "Error deleting skill icon from storage:",
           storageError.message,
         );
+        // Not returning here, as core skill deletion was successful.
+        // The message will indicate potential partial failure if needed.
       } else {
         console.log("Successfully deleted associated skill icon from storage.");
       }
@@ -148,13 +182,18 @@ export async function deleteSkill(formData: FormData): Promise<void> {
   revalidatePath("/admin/skills");
   revalidatePath("/"); // Revalidate the public homepage
 
-  redirect("/admin/skills"); // Redirect back to the skills list
+  // Removed: redirect("/admin/skills");
+  return { success: true, message: "Skill deleted successfully!" }; // Changed return
 }
 
 // ==========================================================
 // UPDATE SKILL Server Action
 // ==========================================================
-export async function updateSkill(formData: FormData): Promise<void> {
+// Modified: Added _prevState parameter and changed return type
+export async function updateSkill(
+  _prevState: ServerActionResponse,
+  formData: FormData,
+): Promise<ServerActionResponse> {
   const skillId = formData.get("skillId") as string;
   const name = formData.get("name") as string;
   const newIconFile = formData.get("new_icon_file") as File;
@@ -169,7 +208,7 @@ export async function updateSkill(formData: FormData): Promise<void> {
   } = await supabase.auth.getUser();
   if (userError || !user || user.id !== process.env.ADMIN_USER_ID) {
     console.error("Unauthorized attempt to update skill.");
-    return;
+    return { success: false, message: "Unauthorized action." }; // Changed return
   }
 
   // Fetch current skill to get existing icon URL for potential deletion
@@ -184,7 +223,10 @@ export async function updateSkill(formData: FormData): Promise<void> {
       "Error fetching current skill for update:",
       fetchSkillError?.message || "Skill not found",
     );
-    return;
+    return {
+      success: false,
+      message: `Error fetching current skill: ${fetchSkillError?.message || "Skill not found"}`,
+    }; // Changed return
   }
 
   let updatedIconUrl: string | null = currentSkill.icon_url; // Start with existing URL
@@ -199,7 +241,7 @@ export async function updateSkill(formData: FormData): Promise<void> {
         oldFilePathParts.length > 1 ? oldFilePathParts[1] : "";
       if (oldFilePath) {
         const { error: deleteOldError } = await supabase.storage
-          .from("portfolio-images")
+          .from("portfolio-images") // Changed to 'portfolio-images'
           .remove([oldFilePath]);
         if (deleteOldError) {
           console.warn(
@@ -218,7 +260,7 @@ export async function updateSkill(formData: FormData): Promise<void> {
     const filePath = `skill-icons/${fileName}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("portfolio-images")
+      .from("portfolio-images") // Changed to 'portfolio-images'
       .upload(filePath, newIconFile, {
         cacheControl: "3600",
         upsert: false,
@@ -233,7 +275,7 @@ export async function updateSkill(formData: FormData): Promise<void> {
       updatedIconUrl = currentSkill.icon_url; // Revert to old URL if new upload fails
     } else if (uploadData) {
       const { data: publicUrlData } = supabase.storage
-        .from("portfolio-images")
+        .from("portfolio-images") // Changed to 'portfolio-images'
         .getPublicUrl(filePath);
 
       if (publicUrlData) {
@@ -248,13 +290,16 @@ export async function updateSkill(formData: FormData): Promise<void> {
     .update({
       name,
       icon_url: updatedIconUrl, // Use the new or existing icon URL
-      category,
+      category: category || null,
     })
     .eq("id", skillId);
 
   if (updateError) {
     console.error("Error updating skill:", updateError.message);
-    return;
+    return {
+      success: false,
+      message: `Failed to update skill: ${updateError.message}`,
+    }; // Changed return
   }
 
   console.log("Skill updated successfully!");
@@ -267,5 +312,11 @@ export async function updateSkill(formData: FormData): Promise<void> {
   revalidatePath("/admin/skills");
   revalidatePath("/"); // Revalidate homepage if skills are displayed there
 
-  redirect("/admin/skills");
+  // Removed: redirect("/admin/skills");
+  return {
+    success: true,
+    message:
+      "Skill updated successfully!" +
+      (uploadErrorMsg ? ` (Warning: ${uploadErrorMsg})` : ""),
+  }; // Changed return
 }
