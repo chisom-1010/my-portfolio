@@ -1,7 +1,6 @@
 // src/app/admin/projects/[id]/edit/page.tsx
 import { createClient } from "@/src/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { updateProject } from "../../actions"; // Import the Server Action
 import { ProjectForm } from "@/src/components/project-form"; // Import the client component
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -18,17 +17,14 @@ interface Project {
   user_id: string;
 }
 
-interface EditProjectPageProps {
-  params: {
-    id: string;
-  };
-}
-
 export default async function EditProjectPage({
   params,
-}: EditProjectPageProps) {
+}: {
+  params: { id: string };
+}) {
   const projectId = params.id;
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -50,11 +46,12 @@ export default async function EditProjectPage({
     redirect("/admin/projects?error=Project not found");
   }
 
+  const { updateProject } = await import("../../actions"); // Dynamic import for server action passed to client component
+
   return (
     <div className="flex flex-col gap-6 p-8 w-full max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold">Edit Project: {project.title}</h1>
-      <ProjectForm action={updateProject} initialData={project} />{" "}
-      {/* Pass project data */}
+      <ProjectForm action={updateProject} initialData={project} />
     </div>
   );
 }
