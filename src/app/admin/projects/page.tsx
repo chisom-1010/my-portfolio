@@ -16,7 +16,7 @@ export default async function NewProjectPage() {
   return (
     <div className="flex flex-col gap-6 p-8 w-full max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold">Add New Project</h1>
-      <ProjectForm action={createProject} />{" "}
+      <ProjectForm action={createProject} />
       {/* Use the client component here */}
     </div>
   );
