@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { SkillForm } from "@/src/components/skill-form";
 
 // Define the Skill type
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface Skill {
   id: string;
   name: string;
@@ -14,25 +13,29 @@ interface Skill {
   user_id: string;
 }
 
-// === NEW: comprehensive interface for skill page props ===
+// Updated interface for Next.js 15+ where params is a Promise
 interface SkillEditPageProps {
-  params: {
+  params: Promise<{
     id: string; // The skill ID from the URL segment
-  };
-  searchParams?: { [key: string]: string | string[] | undefined };
+  }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+// Use this explicit interface in the component's props
 export default async function EditSkillPage({
   params,
   searchParams,
 }: SkillEditPageProps) {
-  const skillId = params.id;
+  // Await the params Promise to get the actual values
+  const { id: skillId } = await params;
+
   const supabase = await createClient();
 
-  // Security check
+  // Check authentication
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
   if (!user || user.id !== process.env.ADMIN_USER_ID) {
     redirect("/auth/login?message=Unauthorized access to admin panel.");
   }
@@ -58,7 +61,7 @@ export default async function EditSkillPage({
   return (
     <div className="flex flex-col gap-6 p-8 w-full max-w-xl mx-auto">
       <h1 className="text-3xl font-bold">Edit Skill: {skill.name}</h1>
-      <SkillForm action={updateSkill} initialData={skill} />{" "}
+      <SkillForm action={updateSkill} initialData={skill} />
     </div>
   );
 }

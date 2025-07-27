@@ -20,9 +20,8 @@ export async function createSkill(
   formData: FormData,
 ): Promise<ServerActionResponse> {
   const name = formData.get("name") as string;
-  const iconFile = formData.get("new_icon_file") as File; // Corrected to new_icon_file for consistency
-  const category = formData.get("category") as string; // Ensure category is handled if you add it to the form
-
+  const iconFile = formData.get("icon_file") as File; // Changed from "new_icon_file" to "icon_file"
+  const category = formData.get("category") as string;
   const supabase = await createClient();
 
   // Security check: Ensure user is authenticated and is the admin
@@ -30,9 +29,10 @@ export async function createSkill(
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
+
   if (userError || !user || user.id !== process.env.ADMIN_USER_ID) {
     console.error("Unauthorized attempt to create skill.");
-    return { success: false, message: "Unauthorized action." }; // Changed return
+    return { success: false, message: "Unauthorized action." };
   }
 
   let iconUrl: string | null = null;
@@ -42,10 +42,10 @@ export async function createSkill(
   if (iconFile && iconFile.size > 0) {
     const fileExtension = iconFile.name.split(".").pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`;
-    const filePath = `skill-icons/${fileName}`; // Store skill icons in a dedicated folder in the bucket
+    const filePath = `skill-icons/${fileName}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("portfolio-images") // Assuming you want to use the same bucket
+      .from("portfolio-images")
       .upload(filePath, iconFile, {
         cacheControl: "3600",
         upsert: false,
@@ -59,7 +59,7 @@ export async function createSkill(
       uploadErrorMsg = `Failed to upload icon: ${uploadError.message}`;
     } else if (uploadData) {
       const { data: publicUrlData } = supabase.storage
-        .from("portfolio-images") // Changed to 'portfolio-images' as per your code
+        .from("portfolio-images")
         .getPublicUrl(filePath);
 
       if (publicUrlData) {
@@ -72,8 +72,8 @@ export async function createSkill(
   const { error: insertError } = await supabase.from("skills").insert({
     name,
     icon_url: iconUrl,
-    user_id: user.id, // Associate skill with the admin user
-    category: category || null, // Ensure category is nullable or always provided
+    user_id: user.id,
+    category: category || null,
   });
 
   if (insertError) {
@@ -81,7 +81,7 @@ export async function createSkill(
     return {
       success: false,
       message: `Failed to create skill: ${insertError.message}`,
-    }; // Changed return
+    };
   }
 
   console.log("New skill created successfully!");
@@ -89,17 +89,16 @@ export async function createSkill(
     console.warn(uploadErrorMsg);
   }
 
-  // --- 3. Revalidate Paths and Redirect ---
-  revalidatePath("/admin/skills"); // Revalidate the list page
-  revalidatePath("/"); // Revalidate the homepage (if it displays skills)
+  // --- 3. Revalidate Paths ---
+  revalidatePath("/admin/skills");
+  revalidatePath("/");
 
-  // Removed: redirect("/admin/skills");
   return {
     success: true,
     message:
       "Skill created successfully!" +
       (uploadErrorMsg ? ` (Warning: ${uploadErrorMsg})` : ""),
-  }; // Changed return
+  };
 }
 
 // ==========================================================

@@ -6,16 +6,37 @@ import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Textarea } from "@/src/components/ui/textarea";
 import { Label } from "@/src/components/ui/label";
-import { Checkbox } from "@/src/components/ui/checkbox"; // Assuming you have shadcn/ui checkbox
-import { createProject } from "../actions"; // Import the new Server Action
+import { Checkbox } from "@/src/components/ui/checkbox";
+import { createProject } from "../actions";
 
-export default async function NewProjectPage() {
+// Create a wrapper action that matches the form action signature
+async function createProjectWrapper(formData: FormData) {
+  "use server";
+  // Call your original action with a dummy prev state
+  const result = await createProject({ success: false, message: "" }, formData);
+
+  // Handle redirect based on the result
+  if (result.success) {
+    redirect("/admin/projects");
+  } else {
+    // For errors, redirect with error message in query params
+    redirect(`/admin/projects/new?error=${encodeURIComponent(result.message)}`);
+  }
+}
+
+export default async function NewProjectPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string }>;
+}) {
   const supabase = await createClient();
+  const resolvedSearchParams = searchParams ? await searchParams : {};
 
   // Security check: Ensure user is authenticated and is the admin
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
   if (!user || user.id !== process.env.ADMIN_USER_ID) {
     redirect("/auth/login?message=Unauthorized access to admin panel.");
   }
@@ -24,7 +45,14 @@ export default async function NewProjectPage() {
     <div className="flex flex-col gap-6 p-8 w-full max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold">Add New Project</h1>
 
-      <form action={createProject} className="space-y-6">
+      {/* Show error message if present */}
+      {resolvedSearchParams.error && (
+        <div className="p-4 rounded-md bg-red-100 text-red-700">
+          {resolvedSearchParams.error}
+        </div>
+      )}
+
+      <form action={createProjectWrapper} className="space-y-6">
         <div>
           <Label htmlFor="title">Project Title</Label>
           <Input id="title" name="title" required className="mt-1" />
