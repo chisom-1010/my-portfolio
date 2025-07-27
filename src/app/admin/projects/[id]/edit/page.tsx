@@ -1,9 +1,9 @@
 // src/app/admin/projects/[id]/edit/page.tsx
 import { createClient } from "@/src/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { ProjectForm } from "@/src/components/project-form"; // Import the client component
+import { ProjectForm } from "@/src/components/project-form";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// Define the Project type (keep this as it's for your data structure)
 interface Project {
   id: string;
   created_at: string;
@@ -17,21 +17,34 @@ interface Project {
   user_id: string;
 }
 
+// Updated interface for Next.js 15+ where params is a Promise
+interface ProjectEditPageProps {
+  params: Promise<{
+    id: string; // The project ID from the URL segment
+  }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+// Use this explicit interface in the component's props
 export default async function EditProjectPage({
   params,
-}: {
-  params: { id: string };
-}) {
-  const projectId = params.id;
+  searchParams,
+}: ProjectEditPageProps) {
+  // Await the params Promise to get the actual values
+  const { id: projectId } = await params;
+
   const supabase = await createClient();
 
+  // Check authentication
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
   if (!user || user.id !== process.env.ADMIN_USER_ID) {
     redirect("/auth/login?message=Unauthorized access to admin panel.");
   }
 
+  // Fetch the project
   const { data: project, error } = await supabase
     .from("projects")
     .select("*")
@@ -46,7 +59,8 @@ export default async function EditProjectPage({
     redirect("/admin/projects?error=Project not found");
   }
 
-  const { updateProject } = await import("../../actions"); // Dynamic import for server action passed to client component
+  // Dynamically import the updateProject action for passing to client component
+  const { updateProject } = await import("../../actions");
 
   return (
     <div className="flex flex-col gap-6 p-8 w-full max-w-2xl mx-auto">
